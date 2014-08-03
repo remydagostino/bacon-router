@@ -4,7 +4,11 @@
   "description": "Clientside routing with bacon js",
   "main": "bacon-router.js",
   "scripts": {
-    "test": "mocha test.js"
+    "test": "tape test/*.js | tap-spec",
+    "watch": "npm-watch"
+  },
+  "watch": {
+    "test": "test/*.js,bacon-router.js"
   },
   "repository": {
     "type": "git",
@@ -19,5 +23,9 @@
   "bugs": {
     "url": "https://github.com/remydagostino/bacon-router/issues"
   },
-  "homepage": "https://github.com/remydagostino/bacon-router"
+  "homepage": "https://github.com/remydagostino/bacon-router",
+  "devDependencies": {
+    "tap-spec": "^0.2.0",
+    "tape": "^2.13.4"
+  }
 }
