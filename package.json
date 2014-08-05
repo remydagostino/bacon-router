@@ -8,7 +8,7 @@
     "watch": "npm-watch"
   },
   "watch": {
-    "test": "test/*.js,bacon-router.js"
+    "test": "{test/*.js,bacon-router.js}"
   },
   "repository": {
     "type": "git",

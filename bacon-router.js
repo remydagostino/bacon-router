@@ -18,6 +18,10 @@
       setupRouter,
       matchRoute,
       hashchange,
+      patternParts,
+      dissectPattern,
+      escapeRegExp,
+      parseQueryString,
       subscribers;
 
   // Persistant State
@@ -74,6 +78,7 @@
   };
 
   // Returns changes in the url hash as a stream of events
+  // :: Window -> EventStream
   getHashEventStream = function(win) {
     return Bacon.fromBinder(function(sink) {
       addSubscriber(win, sink);
@@ -86,7 +91,7 @@
 
   // Creates an event stream that handes a tree of routes
   // Emits events whenever a nested route is entered or left
-  // :: Window -> object -> Stream
+  // :: Window -> object -> EventStream
   setupRouter = function(win, routes) {
     return getHashEventStream(win)
     .flatMap(function(url) {
@@ -94,14 +99,91 @@
     });
   };
 
+
+  // :: string -> [string]
+  patternParts = function(pattern) {
+    var matcher = /\/?([^\/]+)/g,
+        match   = matcher.exec(pattern),
+        parts   = [];
+
+    while (match != null) {
+      parts.push(match[1]);
+      match = matcher.exec(pattern);
+    }
+
+    return parts;
+  };
+
+  // :: string -> object
+  dissectPattern = function(pattern) {
+    var parts   = patternParts(pattern),
+        params  = [],
+        matcher;
+
+    // Build up the regular expression out of the parts
+    matcher = parts.reduce(function(memo, part) {
+      memo += '\\/';
+
+      if (part[0] === ':') {
+        memo += '([^\\/]*?)';
+        params.push(part.slice(1));
+      }
+      else if (part.indexOf('*') > -1) {
+        memo += escapeRegExp(part).replace(/\\\*/g, '.*');
+      }
+      else {
+        memo += escapeRegExp(part);
+      }
+
+      return memo;
+    }, '');
+
+    // Append the query matcher to the end
+    matcher += '(\\?.*)?$'
+
+    return {
+      params: params,
+      matcher: RegExp(matcher, 'i')
+    };
+  };
+
   // :: string -> string -> object
   matchRoute = function(pattern, hashPart) {
-    return Bacon.never();
+    var sig = dissectPattern(pattern),
+        result, query, params;
+
+    result = sig.matcher.exec(hashPart);
+
+    if (!result) {
+      return null;
+    }
+    else {
+      params = sig.params.reduce(function(memo, param, index) {
+        memo[param] = result[index + 1];
+        return memo;
+      }, {});
+
+      return {
+        match: hashPart,
+        params: params,
+        query: {}
+      };
+    }
+  };
+
+  // :: string -> string -> EventStream
+
+  // Generic regex string escaper
+  // http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+  escapeRegExp = function(str) {
+    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
   };
 
   return {
-    asEventStream : getHashEventStream,
-    setup         : setupRouter,
-    matchRoute    : matchRoute
+    asEventStream  : getHashEventStream,
+    setup          : setupRouter,
+    matchRoute     : matchRoute,
+    patternParts   : patternParts,
+    dissectPattern : dissectPattern
   };
 });
