@@ -22,6 +22,7 @@
       dissectPattern,
       escapeRegExp,
       parseQueryString,
+      matchAll,
       subscribers;
 
   // Persistant State
@@ -99,19 +100,25 @@
     });
   };
 
-
-  // :: string -> [string]
-  patternParts = function(pattern) {
-    var matcher = /\/?([^\/]+)/g,
-        match   = matcher.exec(pattern),
+  // :: string -> RexExp -> [[string]]
+  matchAll = function(matcher, pattern) {
+    var match   = matcher.exec(pattern),
         parts   = [];
 
     while (match != null) {
-      parts.push(match[1]);
+      parts.push(match.slice(1));
       match = matcher.exec(pattern);
     }
 
     return parts;
+  };
+
+
+  // :: string -> [string]
+  patternParts = function(pattern) {
+    return matchAll(/\/?([^\/]+)/g, pattern).map(function(v) {
+      return v[0];
+    });
   };
 
   // :: string -> object
@@ -147,6 +154,43 @@
     };
   };
 
+  // :: string -> object
+  parseQueryString = function(query) {
+    var queryObj;
+
+    // Ignore preceeding '?'
+    if (query[0] === '?') {
+      query = query.slice(1);
+    }
+
+    // Work through each key-value pair
+    return matchAll(/([^=]*)\=([^&]*)\&?/g, query)
+    .reduce(function(memo, pair) {
+      var cur = memo,
+          lastRef;
+
+      // Dig into the key to find out if it is nested
+      matchAll(/(?:([^\[]+)|(\[([^\]]+)\]))/g, pair[0])
+      .forEach(function(match) {
+        var key = match[0] || match[2];
+
+        if (lastRef) {
+          cur = cur[lastRef]
+        }
+
+        if (cur[key] == null) {
+          cur[key] = {};
+        }
+
+        lastRef = key;
+      });
+
+      cur[lastRef] = pair[1];
+
+      return memo;
+    }, {});
+  };
+
   // :: string -> string -> object
   matchRoute = function(pattern, hashPart) {
     var sig = dissectPattern(pattern),
@@ -163,10 +207,12 @@
         return memo;
       }, {});
 
+      query = parseQueryString(result[sig.params.length + 1] || '');
+
       return {
         match: hashPart,
         params: params,
-        query: {}
+        query: query
       };
     }
   };
@@ -180,10 +226,11 @@
   };
 
   return {
-    asEventStream  : getHashEventStream,
-    setup          : setupRouter,
-    matchRoute     : matchRoute,
-    patternParts   : patternParts,
-    dissectPattern : dissectPattern
+    asEventStream    : getHashEventStream,
+    setup            : setupRouter,
+    matchRoute       : matchRoute,
+    patternParts     : patternParts,
+    dissectPattern   : dissectPattern,
+    parseQueryString : parseQueryString
   };
 });

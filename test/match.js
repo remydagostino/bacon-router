@@ -49,7 +49,6 @@ test('Path Matching', function(t) {
     'Routes can contain wildcards'
   );
 
-  /*
   t.deepEqual(
     baconRouter.matchRoute('/foo', '/foo?bar=baz'),
     {
@@ -73,7 +72,6 @@ test('Path Matching', function(t) {
     },
     'Nested matching of query params'
   );
-  */
 
   t.end();
 });
