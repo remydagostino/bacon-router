@@ -17,13 +17,18 @@
       removeSubscriber,
       setupRouter,
       matchRoute,
+      matchRouteStream,
       hashchange,
       patternParts,
       dissectPattern,
       escapeRegExp,
       parseQueryString,
+      // ... State
+      subscribers,
+      // ... Utility
+      isPlainObject,
       matchAll,
-      subscribers;
+      map;
 
   // Persistant State
   subscribers = [];
@@ -96,10 +101,34 @@
   setupRouter = function(win, routes) {
     return getHashEventStream(win)
     .flatMap(function(url) {
-      return Bacon.never();
+      var stream = Bacon.never();
+
+      // Concatenate all of the routes
+      map(routes, function(pair) {
+        if (typeof pair.v === 'string') {
+          console.log('matched!!: ', matchRouteStream(pair.v, url));
+
+          stream = stream.merge(
+            matchRouteStream(pair.v, url)
+            .map(function(ev) {
+              console.log('what am I?',  ev);
+              ev.route = pair.k;
+              return ev;
+            })
+          );
+        }
+      });
+
+      return stream;
     });
   };
 
+  // Pure utility function, matches a regex repeatedly
+  // until it finishes parsing a string.
+  // Note - Regex's are stateful, always pass a fresh
+  // regex into this function
+  // Note - This function can get stuck in an infinite
+  // loop if the required regex can match on 0 characters
   // :: string -> RexExp -> [[string]]
   matchAll = function(matcher, pattern) {
     var match   = matcher.exec(pattern),
@@ -113,14 +142,56 @@
     return parts;
   };
 
+  // :: a -> Bool
+  isPlainObject = function(maybeObj) {
+    return Object.prototype.toString.call(maybeObj) === '[object Object]';
+  };
 
+  // :: Functor f => f a -> (a -> b) -> f b
+  map = function(v, f) {
+    var result, prop;
+
+    // Test null/undefined
+    if (v == null) {
+      return v;
+    }
+
+    // Functors provide their own map
+    if (typeof v.map === 'function') {
+      return v.map(f);
+    }
+
+    // Handle objects for free
+    if (isPlainObject(v)) {
+      result = {};
+
+      for (prop in v) {
+        if (v.hasOwnProperty(prop)) {
+          result[prop] = f({ v: v[prop], k: prop });
+        }
+      }
+
+      return result;
+    }
+    else {
+      return v;
+    }
+  };
+
+
+  // Returns each of the bits in-between the forward slashes
+  // of a URL string
   // :: string -> [string]
   patternParts = function(pattern) {
-    return matchAll(/\/?([^\/]+)/g, pattern).map(function(v) {
+    return matchAll(/\/?([^\/]+)/g, pattern)
+    .map(function(v) {
       return v[0];
     });
   };
 
+  // Evaluates a url pattern and computes a regex that can
+  // parse it as well as an array of the names of the matched
+  // patterns in the regex.
   // :: string -> object
   dissectPattern = function(pattern) {
     var parts   = patternParts(pattern),
@@ -154,6 +225,8 @@
     };
   };
 
+  // Parses the query string component of a url and
+  // returns a nested object of parts
   // :: string -> object
   parseQueryString = function(query) {
     var queryObj;
@@ -191,6 +264,10 @@
     }, {});
   };
 
+  // Accepts a pattern and a url path and either returns
+  // null if the pattern doesn't match the path or an object
+  // with the dynamic segments and query object if it does 
+  // match
   // :: string -> string -> object
   matchRoute = function(pattern, hashPart) {
     var sig = dissectPattern(pattern),
@@ -217,7 +294,19 @@
     }
   };
 
+  // Same as match route but returns a stream, either `never`
+  // for no match or `once` for a match.
   // :: string -> string -> EventStream
+  matchRouteStream = function(pattern, hashPart) {
+    var result = matchRoute(pattern, hashPart);
+
+    if (result === null) {
+      return Bacon.never();
+    }
+    else {
+      return Bacon.once(result);
+    }
+  };
 
   // Generic regex string escaper
   // http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
