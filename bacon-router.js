@@ -23,6 +23,7 @@
       dissectPattern,
       escapeRegExp,
       parseQueryString,
+      evaluateRoutes,
       // ... State
       subscribers,
       // ... Utility
@@ -95,31 +96,69 @@
     });
   };
 
+  // :: object -> string -> string -> [RouteEvent]
+  evaluateRoutes = function(routes, url, prefix) {
+    var events = [];
+
+    prefix = prefix || '';
+
+    // Concatenate all of the routes
+    map(
+      function(pair) {
+        var ev;
+
+        if (typeof pair.v === 'string') {
+          ev = matchRoute(pair.v, url);
+
+          if (ev !== null) {
+            ev.route = [prefix, pair.k]
+              .filter(function(str) {
+                return str !== '_' && str.length > 0;
+              })
+              .join('.');
+
+            events.push(ev);
+          }
+        }
+        else if (isPlainObject(pair.v)) {
+          // Append the current route to the inner route and recurse
+          events = events.concat(evaluateRoutes(
+            map(
+              function(innerPair) {
+                if (innerPair.k !== '_' && typeof innerPair.v === 'string') {
+                  return pair.v['_'] + innerPair.v;
+                }
+                else {
+                  return innerPair.v;
+                }
+              },
+              pair.v
+            ),
+            url,
+            (prefix ? prefix + '.' : '') + pair.k
+          ));
+        }
+      },
+      routes
+    );
+
+    return events;
+  };
+
   // Creates an event stream that handes a tree of routes
   // Emits events whenever a nested route is entered or left
   // :: Window -> object -> EventStream
   setupRouter = function(win, routes) {
     return getHashEventStream(win)
     .flatMap(function(url) {
-      var stream = Bacon.never();
+      var events = evaluateRoutes(routes, url);
 
-      // Concatenate all of the routes
-      map(routes, function(pair) {
-        if (typeof pair.v === 'string') {
-          console.log('matched!!: ', matchRouteStream(pair.v, url));
-
-          stream = stream.merge(
-            matchRouteStream(pair.v, url)
-            .map(function(ev) {
-              console.log('what am I?',  ev);
-              ev.route = pair.k;
-              return ev;
-            })
-          );
-        }
-      });
-
-      return stream;
+      if (events.length > 0) {
+        return Bacon.fromArray(events);
+      }
+      else {
+        return new Bacon.Error({ path: url });
+      }
     });
   };
 
@@ -148,7 +187,7 @@
   };
 
   // :: Functor f => f a -> (a -> b) -> f b
-  map = function(v, f) {
+  map = function(f, v) {
     var result, prop;
 
     // Test null/undefined

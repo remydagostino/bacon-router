@@ -54,7 +54,6 @@ test('Basic Router Setup', function(t) {
   mockWindow
     .pushUrl('login')
     .pushUrl('users')
-    /*
     .pushUrl('users/create')
     .pushUrl('users/create?name=ben_smith')
     .pushUrl('users/create?name[first]=ben&name[last]=smith')
@@ -62,9 +61,7 @@ test('Basic Router Setup', function(t) {
     .pushUrl('user/1')
     .pushUrl('user')
     .pushUrl('whoops')
-    .pushUrl('login')
-    */
-    ;
+    .pushUrl('login');
 
   t.deepEquals(
     valueList,
@@ -74,13 +71,49 @@ test('Basic Router Setup', function(t) {
         route: 'login',
         params: {},
         query: {}
-      }/*,
+      },
       {
         match: '/users',
         route: 'users',
         params: {},
         query: {}
-      }*/
+      },
+      {
+        match: '/users/create',
+        route: 'users.create',
+        params: {},
+        query: {}
+      },
+      {
+        match: '/users/create?name=ben_smith',
+        route: 'users.create',
+        params: {},
+        query: { name: 'ben_smith' }
+      },
+      {
+        match: '/users/create?name[first]=ben&name[last]=smith',
+        route: 'users.create',
+        params: {},
+        query: { name: { first: 'ben', last: 'smith' } }
+      },
+      {
+        match: '/user/42',
+        route: 'user',
+        params: { id: '42' },
+        query: {}
+      },
+      {
+        match: '/user/1',
+        route: 'user',
+        params: { id: '1' },
+        query: {}
+      },
+      {
+        match: '/login',
+        route: 'login',
+        params: {},
+        query: {}
+      }
     ],
     'Caught all successful routes'
   );
@@ -88,11 +121,11 @@ test('Basic Router Setup', function(t) {
   t.deepEquals(
     errorList,
     [
-
+      { path: '/user' },
+      { path: '/whoops' }
     ],
     'Caught all failed routes'
   );
 
   t.end();
 });
-
