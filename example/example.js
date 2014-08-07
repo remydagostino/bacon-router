@@ -1,18 +1,23 @@
 (function(w, router) {
-  var hashStream, usersScreen, userScreen, contactsScreen;
-
   // Does nothing
   var myRouter = router.setup(
     window,
     {
       users: {
-        index  : '#/users',
-        user   : '/:id',
+        _      : '/users',
         create : '/create'
       },
-      login    : '#/login'
+      about: {
+        _      : '/about',
+        some: {
+          _    : '/some',
+          thing: '/thing'
+        }
+      },
+      user     : '/user/:id',
+      login    : '/login'
     }
-  );
+  ).log();
 
   // Should log all hash changes
   router.asEventStream(w).log();

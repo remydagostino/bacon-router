@@ -38,7 +38,7 @@
   hashchange = function(ev) {
     var newHash, match;
 
-    match = /#(.*)$/.exec(ev.newUrl);
+    match = /#(.*)$/.exec(ev.newURL);
 
     if (match) {
       newHash = match[1];

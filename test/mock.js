@@ -22,7 +22,7 @@ MockWindow.prototype.removeEventListener = function(name, fn) {
 MockWindow.prototype.pushUrl = function(url) {
   this.observers.forEach(function(obs) {
     obs({
-      newUrl: 'http://blahblah.com/#/' + url
+      newURL: 'http://blahblah.com/#/' + url
     });
   });
 
